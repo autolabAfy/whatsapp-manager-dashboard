@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{{ business_name }} — Chat</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="{{ accent }}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>:root { --accent: {{ accent }}; --accent-dark: {{ accent }}dd; }</style>
+</head>
+<body>
+    <!-- Chat header -->
+    <header class="chat-header">
+        <a href="/" class="back-btn">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+        </a>
+        <div class="chat-avatar" id="chatAvatar">?</div>
+        <div class="chat-header-info">
+            <div class="chat-header-name" id="contactName">Loading...</div>
+            <div class="chat-header-status" id="contactStatus"></div>
+        </div>
+        <div class="mode-toggle" id="modeToggle" onclick="toggleMode()">
+            <div class="mode-toggle-label">
+                <span id="modeLabel" class="mode-label-text">AI</span>
+            </div>
+            <div class="toggle-switch" id="toggleSwitch">
+                <div class="toggle-knob"></div>
+            </div>
+        </div>
+        <button class="icon-btn delete-chat-btn" onclick="deleteChatConversation()" title="Hide conversation">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+            </svg>
+        </button>
+    </header>
+
+    <!-- Mode banner -->
+    <div class="mode-banner" id="modeBanner">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+        </svg>
+        <span id="modeBannerText">AI is handling replies</span>
+    </div>
+
+    <!-- Messages area -->
+    <div class="messages-area" id="messagesArea">
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <span>Loading messages...</span>
+        </div>
+    </div>
+
+    <!-- Input bar -->
+    <div class="input-bar" id="inputBar">
+        <textarea id="messageInput" placeholder="Type a message..." rows="1"
+            onkeydown="handleKeydown(event)" oninput="autoResize(this)"></textarea>
+        <button id="sendBtn" onclick="sendMessage()" class="send-btn">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+        </button>
+    </div>
+
+    <script>
+        const chatId = decodeURIComponent({{ chat_id | tojson }});
+        const BOT_NAME = {{ bot_name | tojson }};
+        const isNewChat = new URLSearchParams(window.location.search).get('new') === '1';
+        let humanMode = false;
+        let messages = [];
+        let sending = false;
+        let lastMessageId = null;
+        let showingTypingIndicator = false;
+        let typingTimeout = null;
+
+        // For new conversations, enable the input immediately — don't wait for async init
+        if (isNewChat) {
+            const phone = chatId.replace('@c.us', '');
+            document.getElementById('contactName').textContent = phone;
+            document.getElementById('chatAvatar').textContent = '#';
+            document.getElementById('contactStatus').textContent = 'New conversation';
+            humanMode = true;
+            updateModeUI();
+        }
+
+        async function init() {
+            // Fetch conversations + messages in parallel (saves ~1.5s)
+            const [convData, msgData] = await Promise.allSettled([
+                fetch('/api/conversations').then(r => r.json()),
+                loadMessages(),
+            ]);
+
+            if (convData.status === 'fulfilled') {
+                const conv = (convData.value.conversations || []).find(c => c.chat_id === chatId);
+                if (conv) {
+                    const name = conv.name || conv.phone;
+                    document.getElementById('contactName').textContent = name;
+                    document.getElementById('chatAvatar').textContent = (name[0] || '?').toUpperCase();
+                    document.getElementById('contactStatus').textContent =
+                        conv.booking_status || conv.phone;
+                    humanMode = conv.human_handover;
+                    updateModeUI();
+                } else {
+                    // Not in conversation list — new number or not loaded yet
+                    if (!isNewChat) {
+                        const phone = chatId.replace('@c.us', '');
+                        document.getElementById('contactName').textContent = phone;
+                        document.getElementById('chatAvatar').textContent = '#';
+                        document.getElementById('contactStatus').textContent = 'New conversation';
+                    }
+                    humanMode = true;
+                    updateModeUI();
+                }
+            } else if (isNewChat) {
+                humanMode = true;
+                updateModeUI();
+            }
+
+            // Mark as read (non-blocking)
+            markAsRead();
+        }
+
+        async function loadMessages(isPolling = false) {
+            try {
+                let url;
+                if (isPolling && lastMessageId !== null) {
+                    const lastMsg = messages[messages.length - 1];
+                    const since = lastMsg ? lastMsg.created_at : null;
+                    url = since
+                        ? `/api/conversations/${encodeURIComponent(chatId)}/messages?since=${encodeURIComponent(since)}`
+                        : `/api/conversations/${encodeURIComponent(chatId)}/messages?limit=100`;
+                } else {
+                    url = `/api/conversations/${encodeURIComponent(chatId)}/messages?limit=100`;
+                }
+
+                const r = await fetch(url);
+                if (r.status === 404) {
+                    messages = [];
+                    renderMessages();
+                    return;
+                }
+                if (!r.ok) throw new Error('Failed to load messages');
+                const data = await r.json();
+                const newMessages = data.messages || [];
+
+                if (isPolling) {
+                    if (!newMessages.length) return;
+
+                    const newLastId = newMessages[newMessages.length - 1].id;
+                    if (newLastId === lastMessageId) return;
+
+                    const lastNewRole = newMessages[newMessages.length - 1].role;
+                    if (showingTypingIndicator && lastNewRole !== 'user') {
+                        clearTypingIndicator();
+                    }
+
+                    const confirmed = messages.filter(m => !String(m.id).startsWith('temp-'));
+                    messages = [...confirmed, ...newMessages.filter(m => !confirmed.some(ex => ex.id === m.id))];
+                    lastMessageId = messages.length ? messages[messages.length - 1].id : null;
+                } else {
+                    messages = newMessages;
+                    lastMessageId = messages.length ? messages[messages.length - 1].id : null;
+                }
+
+                const area = document.getElementById('messagesArea');
+                const wasAtBottom = area.scrollHeight - area.scrollTop - area.clientHeight < 60;
+
+                renderMessages();
+
+                if (showingTypingIndicator) {
+                    reattachTypingIndicator();
+                }
+
+                if (!isPolling || wasAtBottom) {
+                    scrollToBottom();
+                }
+            } catch (e) {
+                if (!isPolling) {
+                    document.getElementById('messagesArea').innerHTML =
+                        '<div class="loading-state"><span>Error loading messages — please try again</span></div>';
+                }
+            }
+        }
+
+        function renderMessages() {
+            const area = document.getElementById('messagesArea');
+            if (!messages.length) {
+                area.innerHTML = '<div class="loading-state"><span>No messages yet — say hello! 👋</span></div>';
+                return;
+            }
+
+            let lastDate = '';
+            area.innerHTML = messages.map(m => {
+                const d = new Date(m.created_at);
+                const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+                let dateSeparator = '';
+                if (dateStr !== lastDate) {
+                    lastDate = dateStr;
+                    dateSeparator = `<div class="date-separator"><span>${dateStr}</span></div>`;
+                }
+
+                const isUser = m.role === 'user';
+                const isHuman = !isUser && m.content.startsWith('[HUMAN]');
+                const displayText = isHuman ? m.content.replace('[HUMAN] ', '') : m.content;
+                const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                if (!displayText.trim()) return '';
+
+                let bubbleClass = 'bubble';
+                let label = '';
+                if (isUser) {
+                    bubbleClass += ' bubble-user';
+                    label = `<span class="msg-label user-label">${escapeHtml(document.getElementById('contactName').textContent)}</span>`;
+                } else if (isHuman) {
+                    bubbleClass += ' bubble-human';
+                    label = '<span class="msg-label human-label">You</span>';
+                } else {
+                    bubbleClass += ' bubble-ai';
+                    label = `<span class="msg-label ai-label">${escapeHtml(BOT_NAME)}</span>`;
+                }
+
+                return `
+                    ${dateSeparator}
+                    <div class="${bubbleClass}">
+                        ${label}
+                        <div class="bubble-text">${formatMessage(displayText)}</div>
+                        <div class="bubble-time">${time}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function formatMessage(text) {
+            // Escape HTML first
+            let safe = escapeHtml(text);
+            // Bold **text**
+            safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            // Line breaks
+            safe = safe.replace(/\n/g, '<br>');
+            return safe;
+        }
+
+        function scrollToBottom() {
+            const area = document.getElementById('messagesArea');
+            requestAnimationFrame(() => {
+                area.scrollTop = area.scrollHeight;
+            });
+        }
+
+        function showTypingIndicator() {
+            if (showingTypingIndicator) return;
+            showingTypingIndicator = true;
+            const area = document.getElementById('messagesArea');
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble bubble-ai typing-indicator';
+            bubble.id = 'typingBubble';
+            bubble.innerHTML = '<div class="bubble-text typing-dots"><span></span><span></span><span></span></div>';
+            area.appendChild(bubble);
+            scrollToBottom();
+            typingTimeout = setTimeout(() => clearTypingIndicator(), 15000);
+        }
+
+        function reattachTypingIndicator() {
+            const area = document.getElementById('messagesArea');
+            if (document.getElementById('typingBubble')) return;
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble bubble-ai typing-indicator';
+            bubble.id = 'typingBubble';
+            bubble.innerHTML = '<div class="bubble-text typing-dots"><span></span><span></span><span></span></div>';
+            area.appendChild(bubble);
+        }
+
+        function clearTypingIndicator() {
+            showingTypingIndicator = false;
+            clearTimeout(typingTimeout);
+            typingTimeout = null;
+            const bubble = document.getElementById('typingBubble');
+            if (bubble) bubble.remove();
+        }
+
+        // Mode toggle
+        function updateModeUI() {
+            const toggle = document.getElementById('toggleSwitch');
+            const label = document.getElementById('modeLabel');
+            const input = document.getElementById('messageInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const banner = document.getElementById('modeBanner');
+            const bannerText = document.getElementById('modeBannerText');
+            const avatar = document.getElementById('chatAvatar');
+
+            if (humanMode) {
+                toggle.classList.add('active');
+                label.textContent = 'YOU';
+                label.style.color = 'var(--accent)';
+                input.disabled = false;
+                input.placeholder = 'Type a message...';
+                sendBtn.disabled = false;
+                banner.className = 'mode-banner human-banner';
+                bannerText.textContent = 'You are replying manually';
+                input.focus();
+            } else {
+                toggle.classList.remove('active');
+                label.textContent = 'AI';
+                label.style.color = 'var(--text-secondary)';
+                input.disabled = true;
+                input.placeholder = 'Switch to manual mode to reply';
+                sendBtn.disabled = true;
+                banner.className = 'mode-banner ai-banner';
+                bannerText.textContent = `${BOT_NAME} is handling replies`;
+            }
+        }
+
+        async function toggleMode() {
+            humanMode = !humanMode;
+            updateModeUI();
+
+            // Haptic feedback on supported devices
+            if (navigator.vibrate) navigator.vibrate(10);
+
+            try {
+                await fetch(`/api/conversations/${encodeURIComponent(chatId)}/mode`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ human_mode: humanMode }),
+                });
+            } catch (e) {
+                humanMode = !humanMode;
+                updateModeUI();
+            }
+        }
+
+        // Send message
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            if (!text || !humanMode || sending) return;
+
+            sending = true;
+            input.value = '';
+            autoResize(input);
+
+            // Optimistic UI
+            const now = new Date().toISOString();
+            messages.push({
+                id: 'temp-' + Date.now(),
+                role: 'assistant',
+                content: '[HUMAN] ' + text,
+                created_at: now,
+            });
+            renderMessages();
+            scrollToBottom();
+
+            try {
+                const r = await fetch(`/api/conversations/${encodeURIComponent(chatId)}/send`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text }),
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || data.error) {
+                    const reason = data.error || data.detail || 'Failed to send';
+                    const isInvalid = r.status === 500 || reason.toLowerCase().includes('invalid') || reason.toLowerCase().includes('not registered');
+                    throw new Error(isInvalid ? 'Number not on WhatsApp or invalid' : reason);
+                }
+                showTypingIndicator();
+            } catch (e) {
+                // Mark last message as failed
+                const lastMsg = document.querySelector('.bubble:last-child');
+                if (lastMsg) {
+                    const failTag = document.createElement('div');
+                    failTag.className = 'bubble-failed';
+                    failTag.textContent = (e.message || 'Failed to send') + ' — tap to retry.';
+                    failTag.onclick = () => {
+                        failTag.remove();
+                        messages.pop();
+                        document.getElementById('messageInput').value = text;
+                        sending = false;
+                    };
+                    lastMsg.appendChild(failTag);
+                }
+            }
+            sending = false;
+        }
+
+        function handleKeydown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function autoResize(el) {
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+        }
+
+        async function markAsRead() {
+            try {
+                await fetch(`/api/conversations/${encodeURIComponent(chatId)}/read`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+            } catch (e) {}
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Poll for new messages (faster than SSE through proxy chain)
+        setInterval(async () => {
+            if (document.hidden) return;
+            await loadMessages(true);
+        }, 5000);
+
+        async function deleteChatConversation() {
+            if (!confirm('Delete this conversation? It will be hidden from your inbox.')) return;
+            try {
+                const r = await fetch('/api/conversations/' + encodeURIComponent(chatId), { method: 'DELETE' });
+                if (!r.ok) throw new Error('Delete failed');
+                window.location.href = '/';
+            } catch (e) {
+                alert('Failed to delete conversation');
+            }
+        }
+
+        // Init
+        init();
+    </script>
+</body>
+</html>
