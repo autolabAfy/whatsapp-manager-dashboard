@@ -90,6 +90,14 @@ for key in os.environ:
 
 if SANDBOX:
     import mock_data
+    CLIENTS.setdefault("demo", {
+        "password": "demo123",
+        "business_name": "Demo Business",
+        "bot_name": "Demo Bot",
+        "modal_url": "",
+        "api_key": "",
+        "accent_color": "#00a884",
+    })
 
 
 def get_client_config():
@@ -255,6 +263,63 @@ def proxy_send(chat_id):
         return jsonify({"error": str(e)}), 500
 
 
+# Media upload size cap (50MB — WhatsApp's outbound media limit is 100MB but most
+# real-world voice/photo/doc is under 10MB; cap at 50 to stay safe)
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
+
+
+@app.route("/api/conversations/<path:chat_id>/send-image", methods=["POST"])
+@app.route("/api/conversations/<path:chat_id>/send-video", methods=["POST"])
+@app.route("/api/conversations/<path:chat_id>/send-document", methods=["POST"])
+@app.route("/api/conversations/<path:chat_id>/send-voice", methods=["POST"])
+@app.route("/api/conversations/<path:chat_id>/send-audio", methods=["POST"])
+@login_required
+def proxy_send_media(chat_id):
+    """Multipart media send. Sandbox stores file under /static/uploads; live mode
+    streams the file to the Modal bot's matching endpoint."""
+    chat_id = unquote(chat_id)
+    # Derive media type from URL path
+    media_type = request.path.rstrip("/").rsplit("-", 1)[-1]  # image / video / document / voice / audio
+    f = request.files.get("file")
+    caption = request.form.get("caption", "")
+    if not f:
+        return jsonify({"error": "missing file"}), 400
+
+    if SANDBOX:
+        cid = session["client_id"]
+        upload_dir = pathlib.Path("static") / "uploads" / cid
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        # Sanitize filename
+        safe_name = pathlib.Path(f.filename or f"upload-{int(time.time())}").name
+        target = upload_dir / f"{int(time.time()*1000)}-{safe_name}"
+        f.save(target)
+        public_url = f"/static/uploads/{cid}/{target.name}"
+        size = target.stat().st_size
+        result = mock_data.send_media(
+            chat_id, media_type, safe_name, f.mimetype or "application/octet-stream",
+            size, caption=caption, data_url=public_url,
+        )
+        return jsonify(result)
+
+    cfg = get_client_config()
+    try:
+        with httpx.Client(timeout=120) as client:
+            files = {"file": (f.filename, f.stream, f.mimetype or "application/octet-stream")}
+            data = {"caption": caption} if caption else {}
+            r = client.post(
+                f"{cfg['modal_url']}/api/conversations/{chat_id}/send-{media_type}",
+                headers={"X-Dashboard-Key": cfg.get("api_key", "")},
+                files=files,
+                data=data,
+            )
+            try:
+                return jsonify(r.json()), r.status_code
+            except Exception:
+                return jsonify({"error": "Send failed", "detail": r.text[:300]}), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/conversations/<path:chat_id>/mode", methods=["POST"])
 @login_required
 def proxy_mode(chat_id):
@@ -363,4 +428,5 @@ def service_worker():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.environ.get("PORT", "5000"))
+    app.run(host="0.0.0.0", port=port, debug=True)
