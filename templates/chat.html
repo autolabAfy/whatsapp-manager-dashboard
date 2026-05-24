@@ -13,9 +13,8 @@
     <style>:root { --accent: {{ accent }}; --accent-dark: {{ accent }}dd; }</style>
 </head>
 <body>
-    <!-- Chat header -->
     <header class="chat-header">
-        <a href="/" class="back-btn">
+        <a href="/" class="back-btn" aria-label="Back">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
@@ -26,46 +25,119 @@
             <div class="chat-header-status" id="contactStatus"></div>
         </div>
         <div class="mode-toggle" id="modeToggle" onclick="toggleMode()">
-            <div class="mode-toggle-label">
-                <span id="modeLabel" class="mode-label-text">AI</span>
-            </div>
-            <div class="toggle-switch" id="toggleSwitch">
-                <div class="toggle-knob"></div>
-            </div>
+            <div class="mode-toggle-label"><span id="modeLabel" class="mode-label-text">AI</span></div>
+            <div class="toggle-switch" id="toggleSwitch"><div class="toggle-knob"></div></div>
         </div>
-        <button class="icon-btn delete-chat-btn" onclick="deleteChatConversation()" title="Hide conversation">
+        <button class="icon-btn delete-chat-btn" onclick="deleteChatConversation()" title="Hide conversation" aria-label="Delete">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
             </svg>
         </button>
     </header>
 
-    <!-- Mode banner -->
     <div class="mode-banner" id="modeBanner">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-        </svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
         <span id="modeBannerText">AI is handling replies</span>
     </div>
 
-    <!-- Messages area -->
     <div class="messages-area" id="messagesArea">
-        <div class="loading-state">
-            <div class="spinner"></div>
-            <span>Loading messages...</span>
+        <div class="loading-state"><div class="spinner"></div><span>Loading messages...</span></div>
+    </div>
+
+    <div class="input-bar" id="inputBar">
+        <!-- Emoji panel (toggled above input) -->
+        <div class="emoji-panel" id="emojiPanel">
+            <div class="emoji-tabs" id="emojiTabs"></div>
+            <div class="emoji-grid" id="emojiGrid"></div>
+        </div>
+
+        <!-- Attachment sheet (toggled above input) -->
+        <div class="attach-sheet" id="attachSheet">
+            <button class="attach-item" onclick="pickFile('document')">
+                <div class="attach-item-icon ic-doc"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></div>
+                <span>Document</span>
+            </button>
+            <button class="attach-item" onclick="pickFile('camera')">
+                <div class="attach-item-icon ic-cam"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+                <span>Camera</span>
+            </button>
+            <button class="attach-item" onclick="pickFile('gallery')">
+                <div class="attach-item-icon ic-gallery"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
+                <span>Gallery</span>
+            </button>
+            <button class="attach-item" onclick="pickFile('video')">
+                <div class="attach-item-icon ic-video"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div>
+                <span>Video</span>
+            </button>
+            <button class="attach-item" onclick="pickFile('audio')">
+                <div class="attach-item-icon ic-audio"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
+                <span>Audio</span>
+            </button>
+        </div>
+
+        <button class="icon-btn-input" id="emojiBtn" onclick="toggleEmojiPanel()" aria-label="Emoji">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg>
+        </button>
+
+        <div class="input-wrap">
+            <textarea id="messageInput" placeholder="Type a message..." rows="1"
+                onkeydown="handleKeydown(event)" oninput="handleInputChange(this)"></textarea>
+            <button class="icon-btn-input" id="attachBtn" onclick="toggleAttachSheet()" aria-label="Attach">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+            </button>
+        </div>
+
+        <button id="sendBtn" onclick="sendMessage()" class="send-btn" style="display:none;" aria-label="Send">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+        <button id="micBtn" class="send-btn mic-btn" aria-label="Record voice">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+
+        <!-- Recording overlay -->
+        <div class="record-overlay" id="recordOverlay" style="display:none;">
+            <div class="record-dot"></div>
+            <div class="record-time" id="recordTime">0:00</div>
+            <div class="record-hint">Recording…</div>
+            <button class="record-cancel" onclick="cancelRecording()">Cancel</button>
+            <button class="record-send" onclick="finishRecording()" aria-label="Send">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
         </div>
     </div>
 
-    <!-- Input bar -->
-    <div class="input-bar" id="inputBar">
-        <textarea id="messageInput" placeholder="Type a message..." rows="1"
-            onkeydown="handleKeydown(event)" oninput="autoResize(this)"></textarea>
-        <button id="sendBtn" onclick="sendMessage()" class="send-btn">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-            </svg>
-        </button>
+    <!-- Hidden file pickers -->
+    <input type="file" id="filePicker" accept="*/*" style="display:none;">
+
+    <!-- Lightbox -->
+    <div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+        <button class="lightbox-close" onclick="closeLightbox(event, true)">×</button>
+        <a class="lightbox-download" id="lightboxDownload" href="#" download target="_blank" onclick="event.stopPropagation()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Download
+        </a>
+        <div id="lightboxContent"></div>
     </div>
+
+    <!-- Pre-send preview overlay -->
+    <div class="preview-overlay" id="previewOverlay">
+        <div class="preview-header">
+            <button class="icon-btn" onclick="closePreview()" aria-label="Close" style="color:var(--text-primary);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            </button>
+            <h3 id="previewTitle">Preview</h3>
+        </div>
+        <div class="preview-body" id="previewBody"></div>
+        <div class="preview-footer">
+            <textarea class="preview-caption" id="previewCaption" placeholder="Add a caption…" rows="1"></textarea>
+            <button class="preview-send" onclick="sendPreview()" aria-label="Send">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="chat-toast" id="chatToast"></div>
 
     <script>
         const chatId = decodeURIComponent({{ chat_id | tojson }});
@@ -77,10 +149,12 @@
         let lastMessageId = null;
         let showingTypingIndicator = false;
         let typingTimeout = null;
+        let contactDisplayName = '';
 
-        // For new conversations, enable the input immediately — don't wait for async init
+        // ---------- Initial state ----------
         if (isNewChat) {
             const phone = chatId.replace('@c.us', '');
+            contactDisplayName = phone;
             document.getElementById('contactName').textContent = phone;
             document.getElementById('chatAvatar').textContent = '#';
             document.getElementById('contactStatus').textContent = 'New conversation';
@@ -88,43 +162,38 @@
             updateModeUI();
         }
 
+        function setContact(name, avatarLetter, status) {
+            contactDisplayName = name;
+            document.getElementById('contactName').textContent = name;
+            document.getElementById('chatAvatar').textContent = avatarLetter;
+            document.getElementById('contactStatus').textContent = status;
+        }
+
         async function init() {
-            // Fetch conversations + messages in parallel (saves ~1.5s)
-            const [convData, msgData] = await Promise.allSettled([
+            const [convData] = await Promise.allSettled([
                 fetch('/api/conversations').then(r => r.json()),
                 loadMessages(),
             ]);
-
             if (convData.status === 'fulfilled') {
                 const conv = (convData.value.conversations || []).find(c => c.chat_id === chatId);
                 if (conv) {
                     const name = conv.name || conv.phone;
-                    document.getElementById('contactName').textContent = name;
-                    document.getElementById('chatAvatar').textContent = (name[0] || '?').toUpperCase();
-                    document.getElementById('contactStatus').textContent =
-                        conv.booking_status || conv.phone;
+                    setContact(name, (name[0] || '?').toUpperCase(), conv.booking_status || conv.phone);
                     humanMode = conv.human_handover;
                     updateModeUI();
-                } else {
-                    // Not in conversation list — new number or not loaded yet
-                    if (!isNewChat) {
-                        const phone = chatId.replace('@c.us', '');
-                        document.getElementById('contactName').textContent = phone;
-                        document.getElementById('chatAvatar').textContent = '#';
-                        document.getElementById('contactStatus').textContent = 'New conversation';
-                    }
+                    renderMessages();  // re-render now that contactDisplayName is known
+                } else if (!isNewChat) {
+                    const phone = chatId.replace('@c.us', '');
+                    setContact(phone, '#', 'New conversation');
                     humanMode = true;
                     updateModeUI();
+                    renderMessages();
                 }
-            } else if (isNewChat) {
-                humanMode = true;
-                updateModeUI();
             }
-
-            // Mark as read (non-blocking)
             markAsRead();
         }
 
+        // ---------- Messages ----------
         async function loadMessages(isPolling = false) {
             try {
                 let url;
@@ -137,28 +206,17 @@
                 } else {
                     url = `/api/conversations/${encodeURIComponent(chatId)}/messages?limit=100`;
                 }
-
                 const r = await fetch(url);
-                if (r.status === 404) {
-                    messages = [];
-                    renderMessages();
-                    return;
-                }
+                if (r.status === 404) { messages = []; renderMessages(); return; }
                 if (!r.ok) throw new Error('Failed to load messages');
                 const data = await r.json();
                 const newMessages = data.messages || [];
-
                 if (isPolling) {
                     if (!newMessages.length) return;
-
                     const newLastId = newMessages[newMessages.length - 1].id;
                     if (newLastId === lastMessageId) return;
-
                     const lastNewRole = newMessages[newMessages.length - 1].role;
-                    if (showingTypingIndicator && lastNewRole !== 'user') {
-                        clearTypingIndicator();
-                    }
-
+                    if (showingTypingIndicator && lastNewRole !== 'user') clearTypingIndicator();
                     const confirmed = messages.filter(m => !String(m.id).startsWith('temp-'));
                     messages = [...confirmed, ...newMessages.filter(m => !confirmed.some(ex => ex.id === m.id))];
                     lastMessageId = messages.length ? messages[messages.length - 1].id : null;
@@ -166,19 +224,11 @@
                     messages = newMessages;
                     lastMessageId = messages.length ? messages[messages.length - 1].id : null;
                 }
-
                 const area = document.getElementById('messagesArea');
                 const wasAtBottom = area.scrollHeight - area.scrollTop - area.clientHeight < 60;
-
                 renderMessages();
-
-                if (showingTypingIndicator) {
-                    reattachTypingIndicator();
-                }
-
-                if (!isPolling || wasAtBottom) {
-                    scrollToBottom();
-                }
+                if (showingTypingIndicator) reattachTypingIndicator();
+                if (!isPolling || wasAtBottom) scrollToBottom();
             } catch (e) {
                 if (!isPolling) {
                     document.getElementById('messagesArea').innerHTML =
@@ -193,7 +243,6 @@
                 area.innerHTML = '<div class="loading-state"><span>No messages yet — say hello! 👋</span></div>';
                 return;
             }
-
             let lastDate = '';
             area.innerHTML = messages.map(m => {
                 const d = new Date(m.created_at);
@@ -203,19 +252,19 @@
                     lastDate = dateStr;
                     dateSeparator = `<div class="date-separator"><span>${dateStr}</span></div>`;
                 }
-
                 const isUser = m.role === 'user';
-                const isHuman = !isUser && m.content.startsWith('[HUMAN]');
-                const displayText = isHuman ? m.content.replace('[HUMAN] ', '') : m.content;
+                const isHuman = !isUser && (m.content || '').startsWith('[HUMAN]');
+                const displayText = isHuman ? (m.content || '').replace('[HUMAN] ', '').replace('[HUMAN]', '') : (m.content || '');
                 const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-                if (!displayText.trim()) return '';
+                // Skip empty text-only messages (but allow media-only)
+                if (!displayText.trim() && !m.media) return '';
 
                 let bubbleClass = 'bubble';
                 let label = '';
                 if (isUser) {
                     bubbleClass += ' bubble-user';
-                    label = `<span class="msg-label user-label">${escapeHtml(document.getElementById('contactName').textContent)}</span>`;
+                    label = `<span class="msg-label user-label">${escapeHtml(contactDisplayName || document.getElementById('contactName').textContent)}</span>`;
                 } else if (isHuman) {
                     bubbleClass += ' bubble-human';
                     label = '<span class="msg-label human-label">You</span>';
@@ -224,34 +273,131 @@
                     label = `<span class="msg-label ai-label">${escapeHtml(BOT_NAME)}</span>`;
                 }
 
-                return `
-                    ${dateSeparator}
-                    <div class="${bubbleClass}">
+                let mediaHtml = '';
+                if (m.media) {
+                    bubbleClass += ' bubble-media';
+                    mediaHtml = renderMedia(m.media, m.id);
+                }
+                const textHtml = displayText.trim()
+                    ? `<div class="bubble-text">${formatMessage(displayText)}</div>` : '';
+
+                return `${dateSeparator}
+                    <div class="${bubbleClass}" data-id="${escapeHtml(String(m.id))}">
                         ${label}
-                        <div class="bubble-text">${formatMessage(displayText)}</div>
+                        ${mediaHtml}
+                        ${textHtml}
                         <div class="bubble-time">${time}</div>
-                    </div>
-                `;
+                    </div>`;
             }).join('');
         }
 
+        function renderMedia(media, msgId) {
+            const url = media.url || '';
+            const safeUrl = escapeHtml(url);
+            if (media.type === 'image') {
+                const thumb = media.thumb_url || url;
+                return `<img class="media-image" loading="lazy" src="${escapeHtml(thumb)}"
+                    onclick="openLightbox('image', '${safeUrl}')" alt="Photo">`;
+            }
+            if (media.type === 'video') {
+                return `<div class="media-video" onclick="openLightbox('video', '${safeUrl}')">
+                    <video src="${safeUrl}#t=0.1" preload="metadata" muted playsinline></video>
+                    <div class="video-play-overlay"><div>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                    </div></div>
+                </div>`;
+            }
+            if (media.type === 'document') {
+                const ext = (media.filename || 'FILE').split('.').pop().toUpperCase().slice(0, 4);
+                const sizeStr = formatSize(media.size || 0);
+                return `<a class="media-doc" href="${safeUrl}" target="_blank" download="${escapeHtml(media.filename || '')}">
+                    <div class="media-doc-icon">${escapeHtml(ext)}</div>
+                    <div class="media-doc-info">
+                        <div class="media-doc-name">${escapeHtml(media.filename || 'Document')}</div>
+                        <div class="media-doc-meta">${sizeStr}${media.pages ? ' · ' + media.pages + ' pages' : ''}</div>
+                    </div>
+                </a>`;
+            }
+            if (media.type === 'voice' || media.type === 'audio') {
+                const id = 'voice-' + msgId;
+                const dur = formatDuration(media.duration || 0);
+                const bars = Array.from({length: 24}, (_, i) => {
+                    const h = 4 + Math.round(Math.abs(Math.sin(i * 1.7 + msgId.length)) * 16);
+                    return `<span style="height:${h}px;"></span>`;
+                }).join('');
+                return `<div class="media-voice">
+                    <button class="voice-play-btn" onclick="toggleVoice('${id}', '${safeUrl}')">
+                        <svg id="${id}-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    </button>
+                    <div class="voice-waveform" id="${id}-wave">${bars}</div>
+                    <div class="voice-duration" id="${id}-dur">${dur}</div>
+                    <audio id="${id}-audio" src="${safeUrl}" preload="none"></audio>
+                </div>`;
+            }
+            return '';
+        }
+
+        function toggleVoice(id, url) {
+            const audio = document.getElementById(id + '-audio');
+            const icon = document.getElementById(id + '-icon');
+            const dur = document.getElementById(id + '-dur');
+            const wave = document.getElementById(id + '-wave');
+            if (!audio) return;
+            // Pause others
+            document.querySelectorAll('audio').forEach(a => { if (a !== audio) { a.pause(); a.currentTime = 0; } });
+            document.querySelectorAll('.voice-play-btn svg').forEach(i => {
+                if (i.id !== id + '-icon') i.innerHTML = '<path d="M8 5v14l11-7z"/>';
+            });
+            if (audio.paused) {
+                audio.play().catch(() => showToast('Cannot play audio'));
+                icon.innerHTML = '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>';
+                audio.ontimeupdate = () => {
+                    const pct = audio.currentTime / (audio.duration || 1);
+                    const bars = wave.querySelectorAll('span');
+                    bars.forEach((b, i) => b.classList.toggle('played', i / bars.length <= pct));
+                    dur.textContent = formatDuration(Math.floor(audio.currentTime));
+                };
+                audio.onended = () => {
+                    icon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+                    dur.textContent = formatDuration(Math.floor(audio.duration || 0));
+                    wave.querySelectorAll('span').forEach(b => b.classList.remove('played'));
+                };
+            } else {
+                audio.pause();
+                icon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+            }
+        }
+
+        function formatSize(b) {
+            if (!b) return '';
+            if (b < 1024) return b + ' B';
+            if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+            return (b/(1024*1024)).toFixed(1) + ' MB';
+        }
+        function formatDuration(s) {
+            s = Math.max(0, Math.floor(s));
+            const m = Math.floor(s / 60);
+            const r = s % 60;
+            return m + ':' + String(r).padStart(2, '0');
+        }
+
         function formatMessage(text) {
-            // Escape HTML first
             let safe = escapeHtml(text);
-            // Bold **text**
             safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-            // Line breaks
             safe = safe.replace(/\n/g, '<br>');
             return safe;
         }
-
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML;
+        }
         function scrollToBottom() {
             const area = document.getElementById('messagesArea');
-            requestAnimationFrame(() => {
-                area.scrollTop = area.scrollHeight;
-            });
+            requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
         }
 
+        // ---------- Typing indicator ----------
         function showTypingIndicator() {
             if (showingTypingIndicator) return;
             showingTypingIndicator = true;
@@ -264,7 +410,6 @@
             scrollToBottom();
             typingTimeout = setTimeout(() => clearTypingIndicator(), 15000);
         }
-
         function reattachTypingIndicator() {
             const area = document.getElementById('messagesArea');
             if (document.getElementById('typingBubble')) return;
@@ -274,91 +419,72 @@
             bubble.innerHTML = '<div class="bubble-text typing-dots"><span></span><span></span><span></span></div>';
             area.appendChild(bubble);
         }
-
         function clearTypingIndicator() {
             showingTypingIndicator = false;
-            clearTimeout(typingTimeout);
-            typingTimeout = null;
+            clearTimeout(typingTimeout); typingTimeout = null;
             const bubble = document.getElementById('typingBubble');
             if (bubble) bubble.remove();
         }
 
-        // Mode toggle
+        // ---------- Mode toggle ----------
         function updateModeUI() {
             const toggle = document.getElementById('toggleSwitch');
             const label = document.getElementById('modeLabel');
             const input = document.getElementById('messageInput');
-            const sendBtn = document.getElementById('sendBtn');
             const banner = document.getElementById('modeBanner');
             const bannerText = document.getElementById('modeBannerText');
-            const avatar = document.getElementById('chatAvatar');
-
             if (humanMode) {
                 toggle.classList.add('active');
-                label.textContent = 'YOU';
-                label.style.color = 'var(--accent)';
+                label.textContent = 'YOU'; label.style.color = 'var(--accent)';
                 input.disabled = false;
                 input.placeholder = 'Type a message...';
-                sendBtn.disabled = false;
                 banner.className = 'mode-banner human-banner';
                 bannerText.textContent = 'You are replying manually';
-                input.focus();
             } else {
                 toggle.classList.remove('active');
-                label.textContent = 'AI';
-                label.style.color = 'var(--text-secondary)';
+                label.textContent = 'AI'; label.style.color = 'var(--text-secondary)';
                 input.disabled = true;
                 input.placeholder = 'Switch to manual mode to reply';
-                sendBtn.disabled = true;
                 banner.className = 'mode-banner ai-banner';
                 bannerText.textContent = `${BOT_NAME} is handling replies`;
             }
+            updateSendVsMic();
+            updateAttachButtons();
+        }
+
+        function updateAttachButtons() {
+            const enabled = humanMode;
+            document.getElementById('emojiBtn').disabled = !enabled;
+            document.getElementById('attachBtn').disabled = !enabled;
+            document.getElementById('micBtn').disabled = !enabled;
         }
 
         async function toggleMode() {
             humanMode = !humanMode;
             updateModeUI();
-
-            // Haptic feedback on supported devices
             if (navigator.vibrate) navigator.vibrate(10);
-
             try {
                 await fetch(`/api/conversations/${encodeURIComponent(chatId)}/mode`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ human_mode: humanMode }),
                 });
-            } catch (e) {
-                humanMode = !humanMode;
-                updateModeUI();
-            }
+            } catch (e) { humanMode = !humanMode; updateModeUI(); }
         }
 
-        // Send message
+        // ---------- Text send ----------
         async function sendMessage() {
             const input = document.getElementById('messageInput');
             const text = input.value.trim();
             if (!text || !humanMode || sending) return;
-
             sending = true;
-            input.value = '';
-            autoResize(input);
-
-            // Optimistic UI
+            input.value = ''; autoResize(input); updateSendVsMic();
             const now = new Date().toISOString();
-            messages.push({
-                id: 'temp-' + Date.now(),
-                role: 'assistant',
-                content: '[HUMAN] ' + text,
-                created_at: now,
-            });
-            renderMessages();
-            scrollToBottom();
-
+            messages.push({ id: 'temp-' + Date.now(), role: 'assistant', content: '[HUMAN] ' + text, created_at: now });
+            renderMessages(); scrollToBottom();
             try {
                 const r = await fetch(`/api/conversations/${encodeURIComponent(chatId)}/send`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text }),
                 });
                 const data = await r.json().catch(() => ({}));
@@ -369,56 +495,38 @@
                 }
                 showTypingIndicator();
             } catch (e) {
-                // Mark last message as failed
                 const lastMsg = document.querySelector('.bubble:last-child');
                 if (lastMsg) {
                     const failTag = document.createElement('div');
                     failTag.className = 'bubble-failed';
                     failTag.textContent = (e.message || 'Failed to send') + ' — tap to retry.';
-                    failTag.onclick = () => {
-                        failTag.remove();
-                        messages.pop();
-                        document.getElementById('messageInput').value = text;
-                        sending = false;
-                    };
+                    failTag.onclick = () => { failTag.remove(); messages.pop(); input.value = text; sending = false; updateSendVsMic(); };
                     lastMsg.appendChild(failTag);
                 }
             }
             sending = false;
         }
 
-        function handleKeydown(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
-        }
+        function handleKeydown(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+        function handleInputChange(el) { autoResize(el); updateSendVsMic(); }
+        function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
 
-        function autoResize(el) {
-            el.style.height = 'auto';
-            el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+        function updateSendVsMic() {
+            const has = document.getElementById('messageInput').value.trim().length > 0;
+            document.getElementById('sendBtn').style.display = (has && humanMode) ? '' : 'none';
+            document.getElementById('micBtn').style.display = (has && humanMode) ? 'none' : '';
         }
 
         async function markAsRead() {
             try {
                 await fetch(`/api/conversations/${encodeURIComponent(chatId)}/read`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                 });
             } catch (e) {}
         }
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        // Poll for new messages (faster than SSE through proxy chain)
-        setInterval(async () => {
-            if (document.hidden) return;
-            await loadMessages(true);
-        }, 5000);
+        // ---------- Polling ----------
+        setInterval(async () => { if (!document.hidden) await loadMessages(true); }, 5000);
 
         async function deleteChatConversation() {
             if (!confirm('Delete this conversation? It will be hidden from your inbox.')) return;
@@ -426,13 +534,268 @@
                 const r = await fetch('/api/conversations/' + encodeURIComponent(chatId), { method: 'DELETE' });
                 if (!r.ok) throw new Error('Delete failed');
                 window.location.href = '/';
+            } catch (e) { alert('Failed to delete conversation'); }
+        }
+
+        // ---------- Attachment sheet ----------
+        function toggleAttachSheet() {
+            if (!humanMode) return showToast('Switch to manual mode first');
+            document.getElementById('emojiPanel').classList.remove('visible');
+            document.getElementById('attachSheet').classList.toggle('visible');
+        }
+
+        function pickFile(kind) {
+            const picker = document.getElementById('filePicker');
+            picker.value = '';
+            picker.removeAttribute('capture');
+            if (kind === 'document') { picker.accept = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar'; }
+            else if (kind === 'camera') { picker.accept = 'image/*'; picker.setAttribute('capture', 'environment'); }
+            else if (kind === 'gallery') { picker.accept = 'image/*'; }
+            else if (kind === 'video') { picker.accept = 'video/*'; }
+            else if (kind === 'audio') { picker.accept = 'audio/*'; }
+            picker.dataset.kind = kind;
+            picker.click();
+            document.getElementById('attachSheet').classList.remove('visible');
+        }
+
+        document.getElementById('filePicker').addEventListener('change', async (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            openPreview(file, e.target.dataset.kind);
+        });
+
+        // ---------- Preview before send ----------
+        let pendingFile = null;
+        let pendingKind = null;
+        function openPreview(file, kind) {
+            pendingFile = file; pendingKind = kind;
+            const overlay = document.getElementById('previewOverlay');
+            const body = document.getElementById('previewBody');
+            const title = document.getElementById('previewTitle');
+            body.innerHTML = '';
+            title.textContent = file.name;
+            if (file.type.startsWith('image/')) {
+                const url = URL.createObjectURL(file);
+                body.innerHTML = `<img src="${url}" alt="">`;
+            } else if (file.type.startsWith('video/')) {
+                const url = URL.createObjectURL(file);
+                body.innerHTML = `<video src="${url}" controls playsinline></video>`;
+            } else if (file.type.startsWith('audio/')) {
+                const url = URL.createObjectURL(file);
+                body.innerHTML = `<audio src="${url}" controls></audio>`;
+            } else {
+                const ext = file.name.split('.').pop().toUpperCase().slice(0, 4);
+                body.innerHTML = `<div class="preview-doc">
+                    <div class="preview-doc-icon">${escapeHtml(ext)}</div>
+                    <div style="font-weight:600;">${escapeHtml(file.name)}</div>
+                    <div style="color:var(--text-secondary);margin-top:6px;">${formatSize(file.size)}</div>
+                </div>`;
+            }
+            document.getElementById('previewCaption').value = '';
+            overlay.classList.add('visible');
+        }
+        function closePreview() {
+            document.getElementById('previewOverlay').classList.remove('visible');
+            pendingFile = null;
+        }
+        async function sendPreview() {
+            if (!pendingFile || sending) return;
+            sending = true;
+            const caption = document.getElementById('previewCaption').value.trim();
+            const file = pendingFile;
+            closePreview();
+            await uploadMedia(file, caption, pendingKind === 'document' ? 'document'
+                : (file.type.startsWith('video/') ? 'video'
+                   : file.type.startsWith('audio/') ? 'audio'
+                   : file.type.startsWith('image/') ? 'image' : 'document'));
+            sending = false;
+        }
+
+        async function uploadMedia(file, caption, type) {
+            const now = new Date().toISOString();
+            const localUrl = URL.createObjectURL(file);
+            const tempId = 'temp-' + Date.now();
+            const tempMedia = {
+                type, url: localUrl, filename: file.name,
+                mime: file.type, size: file.size,
+            };
+            messages.push({ id: tempId, role: 'assistant',
+                content: caption ? '[HUMAN] ' + caption : '', created_at: now,
+                media: tempMedia });
+            renderMessages(); scrollToBottom();
+            try {
+                const fd = new FormData();
+                fd.append('file', file, file.name);
+                if (caption) fd.append('caption', caption);
+                const endpoint = type === 'voice' ? 'send-voice' : `send-${type}`;
+                const r = await fetch(`/api/conversations/${encodeURIComponent(chatId)}/${endpoint}`, {
+                    method: 'POST', body: fd,
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || data.error) throw new Error(data.error || data.detail || 'Upload failed');
+                showToast('Sent');
             } catch (e) {
-                alert('Failed to delete conversation');
+                const bubble = document.querySelector(`.bubble[data-id="${tempId}"]`);
+                if (bubble) {
+                    const failTag = document.createElement('div');
+                    failTag.className = 'bubble-failed';
+                    failTag.textContent = (e.message || 'Failed to send');
+                    bubble.appendChild(failTag);
+                }
             }
         }
 
+        // ---------- Emoji picker ----------
+        const EMOJI_CATS = {
+            '😀': ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','🥰','😍','🤩','😘','😗','😚','😙','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🤧','🥵','🥶','🥴','😵','🤯','🤠','🥳','😎','🤓','🧐','😕','😟','🙁','☹️','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖'],
+            '❤️': ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','♥️','💯','💢','💥','💫','💦','💨','🕳️','💣','💬','👁️‍🗨️','🗨️','🗯️','💭','💤'],
+            '👍': ['👍','👎','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👋','🤚','🖐️','✋','🖖','👏','🙌','🤝','🙏','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🧠','🦷','🦴','👀','👁️','👅','👄'],
+            '🎉': ['🎉','🎊','🎈','🎁','🎂','🍰','🧁','🥳','🎀','🎗️','🪄','✨','🎇','🎆','🪅','🪩','🎯','🎮','🕹️','🎰','🎲','🧩','🎨','🎭','🎤','🎧','🎼','🎵','🎶','🎻','🎹','🥁','🎺','🎸','🪕','🎷'],
+            '🍕': ['🍕','🍔','🍟','🌭','🥪','🌮','🌯','🥙','🥗','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🍤','🍦','🍧','🍨','🍩','🍪','🍫','🍬','🍭','🍮','🍯','🍇','🍈','🍉','🍊','🍋','🍌','🍍','🥭','🍎','🍏','🍐','🍑','🍒','🍓','🥝','🍅','🥥','🥑','🍆','🥔','🥕','🌽','🌶️','🥒','🥬','🥦','🍄','🥜','🌰','🍞','🥐','🥖','🥨','🥯','🥞','🧇','🧀','🍖','🍗','🥩','🥓','☕','🍵','🍶','🍾','🍷','🍸','🍹','🍺','🍻','🥂','🥃','🥤','🧃','🧉','🧊'],
+            '🚗': ['🚗','🚙','🚐','🚎','🏎️','🚓','🚑','🚒','🚌','🚕','🛻','🚚','🚛','🚜','🛴','🚲','🛵','🏍️','🛺','✈️','🛩️','🛫','🛬','🚀','🛸','🚁','🛶','⛵','🚤','🛥️','🛳️','⛴️','🚢','⚓','⛽','🚧','🚏','🗺️','🗿','🗽','🗼','🏰','🏯','🏟️','🎡','🎢','🎠','⛲','⛱️','🏖️','🏝️','🏜️','🌋','⛰️','🏔️','🗻','🏕️','⛺','🛖','🏠','🏡','🏘️','🏚️','🏗️','🏢','🏬','🏣','🏤','🏥','🏦','🏨','🏪','🏫','🏩','💒','🏛️','⛪','🕌','🛕','🕍','⛩️','🕋','⛲','⛺','🌁','🌃','🏙️','🌄','🌅','🌆','🌇','🌉','♨️','🎠','🎡','🎢','💈','🎪'],
+        };
+        const EMOJI_TAB_ORDER = ['😀','❤️','👍','🎉','🍕','🚗'];
+        function initEmojiPanel() {
+            const tabs = document.getElementById('emojiTabs');
+            const grid = document.getElementById('emojiGrid');
+            EMOJI_TAB_ORDER.forEach((cat, i) => {
+                const t = document.createElement('button');
+                t.className = 'emoji-tab' + (i === 0 ? ' active' : '');
+                t.textContent = cat; t.onclick = () => showEmojiCat(cat);
+                tabs.appendChild(t);
+            });
+            showEmojiCat(EMOJI_TAB_ORDER[0]);
+        }
+        function showEmojiCat(cat) {
+            const grid = document.getElementById('emojiGrid');
+            grid.innerHTML = EMOJI_CATS[cat].map(e =>
+                `<button onmousedown="event.preventDefault()" onclick="insertEmoji('${e}')">${e}</button>`).join('');
+            document.querySelectorAll('.emoji-tab').forEach((t, i) =>
+                t.classList.toggle('active', t.textContent === cat));
+        }
+        function toggleEmojiPanel() {
+            if (!humanMode) return showToast('Switch to manual mode first');
+            document.getElementById('attachSheet').classList.remove('visible');
+            const panel = document.getElementById('emojiPanel');
+            const opening = !panel.classList.contains('visible');
+            panel.classList.toggle('visible');
+            if (opening && !panel.dataset.init) { initEmojiPanel(); panel.dataset.init = '1'; }
+        }
+        function insertEmoji(e) {
+            const input = document.getElementById('messageInput');
+            const start = input.selectionStart, end = input.selectionEnd;
+            input.value = input.value.slice(0, start) + e + input.value.slice(end);
+            input.selectionStart = input.selectionEnd = start + e.length;
+            input.focus(); autoResize(input); updateSendVsMic();
+        }
+
+        // ---------- Voice recording ----------
+        let mediaRecorder = null, recordedChunks = [], recordTimer = null, recordStart = 0, recordCancelled = false;
+        async function startRecording() {
+            if (!humanMode) return showToast('Switch to manual mode first');
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+                           : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus') ? 'audio/ogg;codecs=opus'
+                           : 'audio/webm';
+                mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
+                recordedChunks = []; recordCancelled = false;
+                mediaRecorder.ondataavailable = e => { if (e.data.size) recordedChunks.push(e.data); };
+                mediaRecorder.onstop = async () => {
+                    stream.getTracks().forEach(t => t.stop());
+                    clearInterval(recordTimer);
+                    document.getElementById('recordOverlay').style.display = 'none';
+                    document.getElementById('micBtn').classList.remove('recording');
+                    if (recordCancelled || !recordedChunks.length) return;
+                    const blob = new Blob(recordedChunks, { type: mime });
+                    const ext = mime.includes('ogg') ? 'ogg' : 'webm';
+                    const file = new File([blob], `voice-${Date.now()}.${ext}`, { type: mime });
+                    await uploadMedia(file, '', 'voice');
+                };
+                mediaRecorder.start();
+                recordStart = Date.now();
+                document.getElementById('recordOverlay').style.display = 'flex';
+                document.getElementById('micBtn').classList.add('recording');
+                recordTimer = setInterval(() => {
+                    const s = Math.floor((Date.now() - recordStart) / 1000);
+                    document.getElementById('recordTime').textContent = formatDuration(s);
+                }, 250);
+            } catch (e) {
+                showToast('Microphone access denied');
+            }
+        }
+        function finishRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+        }
+        function cancelRecording() {
+            recordCancelled = true;
+            if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+        }
+
+        // Hold-to-record OR tap-to-toggle (mobile-friendly)
+        let micPressTimer = null;
+        const micBtn = document.getElementById('micBtn');
+        micBtn.addEventListener('pointerdown', (e) => {
+            if (!humanMode) return;
+            micPressTimer = setTimeout(() => { micPressTimer = null; startRecording(); }, 300);
+        });
+        micBtn.addEventListener('pointerup', () => {
+            if (micPressTimer) {
+                clearTimeout(micPressTimer); micPressTimer = null;
+                if (!mediaRecorder || mediaRecorder.state !== 'recording') startRecording();
+            } else {
+                finishRecording();
+            }
+        });
+        micBtn.addEventListener('pointerleave', () => {
+            if (micPressTimer) { clearTimeout(micPressTimer); micPressTimer = null; }
+        });
+
+        // ---------- Lightbox ----------
+        function openLightbox(type, url) {
+            const lb = document.getElementById('lightbox');
+            const content = document.getElementById('lightboxContent');
+            const dl = document.getElementById('lightboxDownload');
+            dl.href = url; dl.setAttribute('download', '');
+            content.innerHTML = type === 'image'
+                ? `<img src="${escapeHtml(url)}" alt="">`
+                : `<video src="${escapeHtml(url)}" controls autoplay playsinline></video>`;
+            lb.classList.add('visible');
+        }
+        function closeLightbox(e, force) {
+            if (!force && e && e.target.tagName === 'IMG') return;
+            if (!force && e && e.target.tagName === 'VIDEO') return;
+            const lb = document.getElementById('lightbox');
+            lb.classList.remove('visible');
+            document.getElementById('lightboxContent').innerHTML = '';
+        }
+
+        // ---------- Toast ----------
+        function showToast(msg) {
+            const t = document.getElementById('chatToast');
+            t.textContent = msg;
+            t.classList.add('visible');
+            clearTimeout(showToast._t);
+            showToast._t = setTimeout(() => t.classList.remove('visible'), 2000);
+        }
+
+        // Close panels when tapping outside
+        document.addEventListener('click', (e) => {
+            const sheet = document.getElementById('attachSheet');
+            const panel = document.getElementById('emojiPanel');
+            const attachBtn = document.getElementById('attachBtn');
+            const emojiBtn = document.getElementById('emojiBtn');
+            if (sheet.classList.contains('visible') && !sheet.contains(e.target) && e.target !== attachBtn && !attachBtn.contains(e.target)) {
+                sheet.classList.remove('visible');
+            }
+            if (panel.classList.contains('visible') && !panel.contains(e.target) && e.target !== emojiBtn && !emojiBtn.contains(e.target)) {
+                panel.classList.remove('visible');
+            }
+        });
+
         // Init
         init();
+        updateSendVsMic();
     </script>
 </body>
 </html>
