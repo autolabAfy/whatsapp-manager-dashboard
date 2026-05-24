@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{{ business_name }} — Conversations</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="{{ accent }}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>:root { --accent: {{ accent }}; --accent-dark: {{ accent }}dd; }</style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <h1>{{ business_name }}</h1>
+            {% if sandbox %}<span class="sandbox-tag">DEMO</span>{% endif %}
+        </div>
+        <div class="header-right">
+            <button class="icon-btn" onclick="loadConversations()" title="Refresh">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 4v6h-6M1 20v-6h6"/>
+                    <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                </svg>
+            </button>
+            <a href="/logout" class="icon-btn" title="Logout">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+                </svg>
+            </a>
+        </div>
+    </header>
+
+    <!-- Search -->
+    <div class="search-bar">
+        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input type="text" id="search" placeholder="Search by name or phone..." oninput="filterConversations()">
+    </div>
+
+    <!-- Tab bar: All / AI / Human -->
+    <div class="tab-bar">
+        <button class="tab active" data-filter="all" onclick="setFilter('all', this)">All</button>
+        <button class="tab" data-filter="ai" onclick="setFilter('ai', this)">
+            <span class="tab-dot ai-dot"></span> AI Active
+        </button>
+        <button class="tab" data-filter="human" onclick="setFilter('human', this)">
+            <span class="tab-dot human-dot"></span> Human Mode
+        </button>
+    </div>
+
+    <!-- Conversation list -->
+    <div id="conversations" class="conversation-list">
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <span>Loading conversations...</span>
+        </div>
+    </div>
+
+    <!-- Toast notification -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Pull-to-refresh indicator -->
+    <div id="pullIndicator" class="pull-indicator">
+        <div class="spinner small"></div>
+    </div>
+
+    <!-- New Chat FAB -->
+    <button class="fab" onclick="openNewChat()" title="New conversation">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+            <line x1="12" y1="8" x2="12" y2="14"/>
+            <line x1="9" y1="11" x2="15" y2="11"/>
+        </svg>
+    </button>
+
+    <!-- New Chat Modal -->
+    <div id="newChatModal" class="modal-overlay" onclick="if(event.target===this)closeNewChat()">
+        <div class="modal-sheet">
+            <div class="modal-handle"></div>
+            <h3>New Conversation</h3>
+            <p style="color:#8696a0;font-size:0.85rem;margin:0 0 16px">Enter the phone number with country code (e.g. 6591234567)</p>
+            <input type="tel" id="newChatPhone" placeholder="e.g. 6591234567" autocomplete="off">
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeNewChat()">Cancel</button>
+                <button class="btn-start" onclick="startNewChat()">Start Chat</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BOT_NAME = {{ bot_name | tojson }};
+        const BASE_TITLE = document.title;
+        let allConversations = [];
+        let currentFilter = 'all';
+
+        async function loadConversations() {
+            try {
+                const r = await fetch('/api/conversations');
+                const data = await r.json();
+                allConversations = data.conversations || [];
+                updateTabTitle();
+                applyFilters();
+            } catch (e) {
+                document.getElementById('conversations').innerHTML =
+                    '<div class="loading-state"><span>Failed to load. Pull to retry.</span></div>';
+            }
+        }
+
+        function updateTabTitle() {
+            const totalUnread = allConversations.reduce((sum, c) => sum + (c.unread || 0), 0);
+            document.title = totalUnread > 0 ? `(${totalUnread}) ${BASE_TITLE}` : BASE_TITLE;
+        }
+
+        function applyFilters() {
+            const q = (document.getElementById('search').value || '').toLowerCase();
+            let filtered = allConversations;
+
+            // Text filter
+            if (q) {
+                filtered = filtered.filter(c =>
+                    (c.name || '').toLowerCase().includes(q) ||
+                    c.phone.includes(q) ||
+                    (c.business_name || '').toLowerCase().includes(q)
+                );
+            }
+
+            // Tab filter
+            if (currentFilter === 'ai') {
+                filtered = filtered.filter(c => !c.human_handover);
+            } else if (currentFilter === 'human') {
+                filtered = filtered.filter(c => c.human_handover);
+            }
+
+            renderConversations(filtered);
+        }
+
+        function filterConversations() { applyFilters(); }
+
+        function setFilter(filter, btn) {
+            currentFilter = filter;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            applyFilters();
+        }
+
+        function renderConversations(convos) {
+            const container = document.getElementById('conversations');
+            if (!convos.length) {
+                container.innerHTML = '<div class="loading-state"><span>No conversations found</span></div>';
+                return;
+            }
+
+            container.innerHTML = convos.map(c => {
+                const name = c.name || c.phone;
+                const preview = c.last_message?.preview || 'No messages';
+                const role = c.last_message?.role;
+                const isHuman = role === 'assistant' && preview.startsWith('[HUMAN]');
+                const cleanPreview = isHuman ? preview.replace('[HUMAN] ', '') : preview;
+                const prefix = role === 'assistant' ? (isHuman ? 'You: ' : `${BOT_NAME}: `) : '';
+                const time = c.last_message?.created_at ? formatTime(c.last_message.created_at) : '';
+                const unread = c.unread > 0 ? `<span class="unread-badge">${c.unread}</span>` : '';
+                const mode = c.human_handover
+                    ? '<span class="mode-badge human">YOU</span>'
+                    : '<span class="mode-badge ai">AI</span>';
+                const unreadClass = c.unread > 0 ? 'unread' : '';
+                const status = c.booking_status ? `<span class="conv-status">${escapeHtml(c.booking_status)}</span>` : '';
+                const chatIdEsc = escapeHtml(c.chat_id);
+                const chatIdJson = JSON.stringify(c.chat_id);
+
+                const chatIdAttr = c.chat_id.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+
+                return `
+                    <div class="swipe-container" data-chat-id="${chatIdAttr}">
+                        <div class="swipe-action-delete">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+                            </svg>
+                            Delete
+                        </div>
+                        <a href="/chat/${encodeURIComponent(c.chat_id)}" class="conversation-item ${unreadClass}">
+                            <div class="conv-avatar ${c.human_handover ? 'avatar-human' : ''}">${(name[0] || '?').toUpperCase()}</div>
+                            <div class="conv-body">
+                                <div class="conv-top">
+                                    <span class="conv-name">${escapeHtml(name)}</span>
+                                    <span class="conv-time">${time}</span>
+                                </div>
+                                <div class="conv-bottom">
+                                    <span class="conv-preview">${prefix}${escapeHtml(cleanPreview)}</span>
+                                    <div class="conv-badges">
+                                        ${status}
+                                        ${mode}
+                                        ${unread}
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                `;
+            }).join('');
+
+            initSwipeGestures();
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('visible');
+            setTimeout(() => toast.classList.remove('visible'), 2500);
+        }
+
+        async function deleteConversation(chatId, swipeEl) {
+            try {
+                const r = await fetch('/api/conversations/' + encodeURIComponent(chatId), { method: 'DELETE' });
+                if (!r.ok) throw new Error('Delete failed');
+                showToast('Conversation hidden');
+                if (swipeEl) {
+                    swipeEl.style.transition = 'opacity 0.3s, max-height 0.3s';
+                    swipeEl.style.opacity = '0';
+                    swipeEl.style.maxHeight = swipeEl.offsetHeight + 'px';
+                    requestAnimationFrame(() => { swipeEl.style.maxHeight = '0'; });
+                    setTimeout(() => {
+                        allConversations = allConversations.filter(c => c.chat_id !== chatId);
+                        applyFilters();
+                    }, 300);
+                }
+            } catch (e) {
+                showToast('Failed to delete conversation');
+            }
+        }
+
+        function initSwipeGestures() {
+            document.querySelectorAll('.swipe-container').forEach(container => {
+                if (container._swipeInit) return;
+                container._swipeInit = true;
+                const item = container.querySelector('.conversation-item');
+                let startX = 0, currentX = 0, swiping = false;
+
+                item.addEventListener('touchstart', e => {
+                    startX = e.touches[0].clientX;
+                    currentX = 0;
+                    swiping = true;
+                    item.style.transition = 'none';
+                }, { passive: true });
+
+                item.addEventListener('touchmove', e => {
+                    if (!swiping) return;
+                    const diff = e.touches[0].clientX - startX;
+                    currentX = Math.min(0, Math.max(-100, diff));
+                    item.style.transform = `translateX(${currentX}px)`;
+                }, { passive: true });
+
+                item.addEventListener('touchend', () => {
+                    swiping = false;
+                    item.style.transition = 'transform 0.25s ease';
+                    if (currentX < -50) {
+                        item.style.transform = 'translateX(-88px)';
+                        container.classList.add('swiped');
+                    } else {
+                        item.style.transform = 'translateX(0)';
+                        container.classList.remove('swiped');
+                    }
+                });
+            });
+        }
+
+
+        function formatTime(isoStr) {
+            const d = new Date(isoStr);
+            const now = new Date();
+            const diff = now - d;
+            const mins = Math.floor(diff / 60000);
+            if (mins < 1) return 'now';
+            if (mins < 60) return `${mins}m`;
+            if (diff < 86400000 && d.getDate() === now.getDate()) {
+                return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            if (d.getDate() === yesterday.getDate() && d.getMonth() === yesterday.getMonth()) {
+                return 'Yesterday';
+            }
+            if (diff < 604800000) {
+                return d.toLocaleDateString([], { weekday: 'short' });
+            }
+            return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Poll for updates (faster than SSE through proxy chain)
+        setInterval(() => {
+            if (!document.hidden) loadConversations();
+        }, 8000);
+
+        // Reload immediately when user returns to this tab/page
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) loadConversations();
+        });
+        window.addEventListener('pageshow', () => loadConversations());
+
+        // Pull to refresh (touch)
+        let touchStartY = 0;
+        let pulling = false;
+        const list = document.getElementById('conversations');
+
+        list.addEventListener('touchstart', e => {
+            if (list.scrollTop === 0) touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        list.addEventListener('touchmove', e => {
+            if (touchStartY && e.touches[0].clientY - touchStartY > 60 && list.scrollTop === 0) {
+                document.getElementById('pullIndicator').classList.add('visible');
+                pulling = true;
+            }
+        }, { passive: true });
+
+        list.addEventListener('touchend', () => {
+            if (pulling) {
+                loadConversations();
+                setTimeout(() => document.getElementById('pullIndicator').classList.remove('visible'), 800);
+                pulling = false;
+            }
+            touchStartY = 0;
+        });
+
+        // New chat modal
+        function openNewChat() {
+            document.getElementById('newChatModal').classList.add('visible');
+            setTimeout(() => document.getElementById('newChatPhone').focus(), 300);
+        }
+
+        function closeNewChat() {
+            document.getElementById('newChatModal').classList.remove('visible');
+            document.getElementById('newChatPhone').value = '';
+        }
+
+        function startNewChat() {
+            let phone = document.getElementById('newChatPhone').value.trim().replace(/[^0-9]/g, '');
+            if (!phone || phone.length < 8) {
+                document.getElementById('newChatPhone').style.borderColor = '#e74c3c';
+                return;
+            }
+            const chatId = phone + '@c.us';
+            closeNewChat();
+            window.location.href = '/chat/' + encodeURIComponent(chatId) + '?new=1';
+        }
+
+        // Allow Enter key to start chat
+        document.getElementById('newChatPhone').addEventListener('keydown', e => {
+            if (e.key === 'Enter') startNewChat();
+        });
+
+        document.addEventListener('click', e => {
+            const delBtn = e.target.closest('.swipe-action-delete');
+            if (delBtn) {
+                const container = delBtn.closest('.swipe-container');
+                const chatId = container.dataset.chatId;
+                deleteConversation(chatId, container);
+                return;
+            }
+        });
+
+        document.addEventListener('touchstart', e => {
+            document.querySelectorAll('.swipe-container.swiped').forEach(c => {
+                if (!c.contains(e.target)) {
+                    const item = c.querySelector('.conversation-item');
+                    item.style.transition = 'transform 0.25s ease';
+                    item.style.transform = 'translateX(0)';
+                    c.classList.remove('swiped');
+                }
+            });
+        }, { passive: true });
+
+        // Init
+        loadConversations();
+
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
+    </script>
+</body>
+</html>
